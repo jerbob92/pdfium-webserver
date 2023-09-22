@@ -1,0 +1,20 @@
+FROM alpine:edge AS build
+RUN apk add --no-cache --update go gcc g++ curl pkgconfig
+
+WORKDIR /usr/src/app
+
+# Install pdfium
+RUN curl -L https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F6015/pdfium-linux-musl-x64.tgz -o pdfium-linux-musl-x64.tgz && \
+    mkdir /opt/pdfium && \
+    tar -C /opt/pdfium -xvf pdfium-linux-musl-x64.tgz
+
+# Copy in go.mud/sum first to be able to cache that step first.
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+COPY . .
+
+RUN CGO_ENABLED=1 CC=musl-gcc GOOS=linux go build -o bin/api main.go
+
+COPY pdfium.pc /usr/lib/pkgconfig/pdfium.pc
+RUN CGO_ENABLED=1 CC=musl-gcc GOOS=linux go build -o bin/pdfium worker/main.go

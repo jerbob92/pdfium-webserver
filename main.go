@@ -14,6 +14,7 @@ import (
 	"github.com/ory/graceful"
 
 	logrus_logstash "github.com/bshuster-repo/logrus-logstash-hook"
+	"github.com/penglongli/gin-metrics/ginmetrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/toorop/gin-logrus"
 )
@@ -22,8 +23,10 @@ import (
 var pool pdfium.Pool
 
 func initPdfium() {
-	// Fake a long pdfium startup time.
-	time.Sleep(time.Second * 120)
+	if os.Getenv("ENVIRONMENT") == "production" {
+		// Fake a long pdfium startup time.
+		time.Sleep(time.Second * 60)
+	}
 
 	cmd := multi_threaded.Command{
 		BinPath: "go",                              // Only do this while developing, on production put the actual binary path in here. You should not want the Go runtime on production.
@@ -44,6 +47,7 @@ func initPdfium() {
 		MaxTotal: 4, // Maxium amount of workers in total, allows the amount of workers to grow when needed, items between total max and idle max are automatically cleaned up, while idle workers are kept alive so they can be used directly.
 		Command:  cmd,
 	})
+
 }
 
 type BindFile struct {
@@ -65,6 +69,14 @@ func main() {
 
 	r := gin.New()
 	r.Use(ginlogrus.Logger(log.StandardLogger()), gin.Recovery())
+
+	m := ginmetrics.GetMonitor()
+
+	m.SetMetricPath("/metrics")
+	m.SetSlowTime(1)
+	m.SetDuration([]float64{0.1, 0.3, 1.2, 5, 10})
+
+	m.Use(r)
 
 	// The /readyz endpoint can be used by kubernetes as a readiness endpoint.
 	// It gives an indication whether the API is ready to use.

@@ -25,11 +25,10 @@ RUN go build -o bin/pdfium worker/main.go
 
 FROM debian:bookworm
 
-COPY pdfium.pc /usr/lib/pkgconfig/pdfium.pc
-
 COPY --from=build /usr/src/app/bin /app
 COPY --from=build /opt/pdfium /opt/pdfium
 
+ENV LD_LIBRARY_PATH=/opt/pdfium/lib
 ENV PDFIUM_WORKER=/app/pdfium
 ENV ENVIRONMENT=production
 CMD ["/app/api"]
